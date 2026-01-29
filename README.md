@@ -1,8 +1,11 @@
 # 🗺️ ROS 2 Bag to Occupancy Grid Converter
 
+<img width="290" height="374" alt="Screenshot from 2026-01-29 15-00-51" src="https://github.com/user-attachments/assets/18baca2d-8e8d-434c-ab02-24611b94c30e" />
+
+
 ## 🎯 What This Does
 
-Converts 3D LiDAR point cloud recordings (ROS 2 bag files) into 2D occupancy grid maps for robot navigation. **Specialized for uneven terrain** like ramps, outdoor environments, and multi-level spaces. This assumes the bag file has an odometry topic and point cloud topic.
+Converts ROS 2 bag files into 2D occupancy grid maps for robot navigation. **Specialized for uneven terrain** like ramps, outdoor environments, and multi-level spaces. This assumes the bag file has an odometry topic and point cloud topic.
 
 ### Key Features
 
