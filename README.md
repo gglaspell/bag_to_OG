@@ -1,19 +1,17 @@
 # 🗺️ ROS 2 Bag to Occupancy Grid Converter
 
-<img width="145" height="187" alt="Screenshot from 2026-01-29 15-00-51" src="https://github.com/user-attachments/assets/18baca2d-8e8d-434c-ab02-24611b94c30e" />
-
-
 ## 🎯 What This Does
 
-Converts ROS 2 bag files into 2D occupancy grid maps for robot navigation. **Specialized for uneven terrain** like ramps, outdoor environments, and multi-level spaces. This assumes the bag file has an odometry topic and point cloud topic.
+Converts 3D LiDAR point cloud recordings (ROS 2 bag files) into 2D occupancy grid maps for robot navigation. **Specialized for uneven terrain** like ramps, outdoor environments, and multi-level spaces. This assumes the bag file has an odometry topic and point cloud topic.
 
 ### Key Features
 
-✅ **Terrain-Aware Processing** - Handles ramps, slopes, and uneven ground  
-✅ **Ground/Obstacle Separation** - Smart classification using surface normals  
-✅ **Relative Height Slicing** - Detects obstacles relative to local ground elevation  
-✅ **Docker Containerized** - No complex dependency management  
-✅ **Highly Configurable** - Tune for your robot and environment  
+✅ **Terrain-Aware Processing** - Handles ramps, slopes, and uneven ground
+✅ **Ground/Obstacle Separation** - Smart classification using surface normals
+✅ **Relative Height Slicing** - Detects obstacles relative to local ground elevation
+✅ **Noise/Cluster Filtering** - Removes small isolated obstacle clusters via 2D Connected Component Analysis
+✅ **Docker Containerized** - No complex dependency management
+✅ **Highly Configurable** - Tune for your robot and environment
 
 ---
 
@@ -81,7 +79,7 @@ docker build -t bag-to-map .
 
 **What this does:** Creates a containerized environment with all the necessary software (Python, ROS 2 libraries, etc.) pre-installed.
 
-⏱️ **First time:** 5-10 minutes (downloads packages)  
+⏱️ **First time:** 5-10 minutes (downloads packages)
 ⏱️ **After that:** ~30 seconds (cached)
 
 ---
@@ -123,6 +121,15 @@ docker run --rm -v "$(pwd)/data:/app/data" bag-to-map \
     --downsample 0.02
 ```
 
+### 🧹 Noisy/Cluttered Environment (Remove Spurious Obstacles)
+```bash
+docker run --rm -v "$(pwd)/data:/app/data" bag-to-map \
+    /app/data/YOUR_BAG_FOLDER \
+    /app/data/my_map \
+    --min_cluster_size 50 \
+    --closing_iters 2
+```
+
 ### 🐛 Debug Mode (See What's Happening)
 ```bash
 docker run --rm -v "$(pwd)/data:/app/data" bag-to-map \
@@ -135,20 +142,22 @@ docker run --rm -v "$(pwd)/data:/app/data" bag-to-map \
 
 ## 🔧 Parameter Quick Reference
 
-| Parameter | Required | Default Value | Description |
+| Parameter | Required | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `input_bag` | **Yes** | N/A | The path to the input ROS 2 bag directory. |
-| `output_path` | **Yes** | N/A | The base path for the output files (e.g., 'my_map'). The script will add `.pgm` and `.yaml` extensions. |
-| `--pc_topic` | No | `/dlio/odom_node/pointcloud/deskewed` | The topic name of the input point cloud messages from odometry or SLAM. |
-| `--odom_topic` | No | `/dlio/odom_node/odom` | The odometry topic used to get the sensor's pose for accurate ray-casting. |
-| `--octree_res` | No | `0.1` | The resolution (in meters) of the intermediate 3D OcTree. |
-| `--grid_res` | No | `0.05` | The resolution (in meters) of the final 2D occupancy grid. |
-| `--slope_deg` | No | `15.0` | The maximum slope (in degrees) for a point to be considered part of the ground. |
-| `--normal_radius`| No | `0.2` | The radius (in meters) used for normal estimation when separating ground from obstacles. |
-| `--z_min` | No | `0.1` | The minimum height (in meters) above the local ground to check for obstacles. |
-| `--z_max` | No | `2.0` | The maximum height (in meters) above the local ground to check for obstacles. |
-| `--downsample` | No | `0.05` | Voxel size (in meters) to downsample the point cloud before processing. Set to `0` to disable. |
-| `--workers` | No | `4` | The number of parallel threads to use for generating the final 2D grid. |
+| `input_bag` | **Yes** | N/A | Path to the input ROS 2 bag directory. |
+| `output_path` | **Yes** | N/A | Base path for the output files (e.g. `my_map`). The script adds `.pgm` and `.yaml` extensions. |
+| `--pc_topic` | No | `/dlio/odom_node/pointcloud/deskewed` | Point cloud topic name. |
+| `--odom_topic` | No | `/dlio/odom_node/odom` | Odometry topic used to get the sensor's pose for accurate ray-casting. |
+| `--octree_res` | No | `0.1` | Resolution (m) of the intermediate 3D OcTree. |
+| `--grid_res` | No | `0.05` | Resolution (m) of the final 2D occupancy grid. |
+| `--slope_deg` | No | `15.0` | Maximum slope (degrees) for a point to be considered ground. |
+| `--normal_radius` | No | `0.2` | Radius (m) used for surface-normal estimation. |
+| `--z_min` | No | `0.1` | Minimum height (m) above local ground to check for obstacles. |
+| `--z_max` | No | `2.0` | Maximum height (m) above local ground to check for obstacles. |
+| `--downsample` | No | `0.05` | Voxel size (m) for point-cloud downsampling. Set to `0` to disable. |
+| `--workers` | No | `4` | Parallel worker threads for grid generation. |
+| `--min_cluster_size` | No | `20` | Minimum number of **grid cells** an occupied cluster must contain to be kept. Smaller clusters are relabelled as unknown. Set to `0` to disable denoising. |
+| `--closing_iters` | No | `1` | Morphological closing passes applied before cluster labeling. Bridges tiny 1-pixel gaps in walls so real obstacles are not accidentally split. Set to `0` to skip. |
 
 ---
 
@@ -168,7 +177,7 @@ Topic: /velodyne/points | Type: sensor_msgs/msg/PointCloud2
 ```
 
 **Common topic names:**
-- `/dlio/odom_node/pointcloud/deskewed` (DLIO - default)
+- `/dlio/odom_node/pointcloud/deskewed` (DLIO — default)
 - `/velodyne/points` (Velodyne)
 - `/ouster/points` (Ouster)
 - `/points_raw` (Generic)
@@ -177,18 +186,19 @@ Topic: /velodyne/points | Type: sensor_msgs/msg/PointCloud2
 
 ## 💡 Pro Tips
 
-1. **Start with defaults** - Run once with no parameters, check output with `--verbose`
-2. **Tune incrementally** - Change ONE parameter at a time, compare results
-3. **Match your robot** - Set `--z_min` and `--z_max` based on robot height
-4. **Terrain matters** - Increase `--slope_deg` for outdoor/uneven environments
-5. **Speed vs. quality** - Adjust `--downsample` and `--grid_res` as needed
+1. **Start with defaults** — Run once with no extra parameters, inspect the output
+2. **Tune incrementally** — Change ONE parameter at a time and compare results
+3. **Match your robot** — Set `--z_min` and `--z_max` based on your robot's height
+4. **Terrain matters** — Increase `--slope_deg` for outdoor/uneven environments
+5. **Speed vs. quality** — Adjust `--downsample` and `--grid_res` as needed
+6. **Noisy maps** — Increase `--min_cluster_size` (e.g. 50–100) to remove more spurious obstacles; increase `--closing_iters 2` if wall segments are being split and removed
 
 ---
 
 ## 🛠️ Troubleshooting
 
 ### "No valid point clouds were found"
-**Fix:** Check your topic name with `ros2 bag info data/your_bag` and use `--topic /your/actual/topic`
+**Fix:** Check your topic name with `ros2 bag info data/your_bag` and pass it with `--pc_topic /your/actual/topic`
 
 ### Map is all black (over-detection)
 **Fix:** Increase `--z_min 0.15` and try `--slope_deg 20`
@@ -199,19 +209,28 @@ Topic: /velodyne/points | Type: sensor_msgs/msg/PointCloud2
 ### "No ground points detected"
 **Fix:** Increase `--slope_deg 25` or higher for rough terrain
 
-### Map is noisy/grainy
+### Map is noisy/grainy (fine-grained speckles everywhere)
 **Fix:** Increase `--downsample 0.1` and `--grid_res 0.1`
 
-**See `USER_GUIDE.md` for detailed troubleshooting.**
+### Map has many small isolated black specks (noise obstacles)
+**Fix:** Increase `--min_cluster_size 50` (or higher) to remove more small clusters; try `--closing_iters 2` if wall pieces are being over-removed
+
+### Real small obstacles are being erased
+**Fix:** Decrease `--min_cluster_size` (e.g. 10) so smaller legitimate obstacles are kept
+
+### Wall segments are disappearing
+**Fix:** Increase `--closing_iters 2` to bridge pixel gaps before labeling, or decrease `--min_cluster_size`
+
+### "All obstacle cells removed by cluster filter"
+**Fix:** Decrease `--min_cluster_size` or set `--min_cluster_size 0` to disable the filter entirely
 
 ---
 
 ## 🐛 Known Limitations
 
-- Requires TF transforms in bag file (use SLAM if missing)
-- Processes entire bag (cannot resume from checkpoint)
-- Single-threaded processing (parallelization not implemented)
-- Memory usage scales with point cloud size (2-3x bag file size in RAM)
+- Requires odometry topic in bag file (use SLAM-output bags)
+- Processes the entire bag (no checkpoint/resume)
+- Memory usage scales with point cloud size (~2–3× bag file size in RAM)
 
 ---
 
@@ -219,21 +238,21 @@ Topic: /velodyne/points | Type: sensor_msgs/msg/PointCloud2
 
 | Bag Size | Expected Time | RAM Usage |
 |----------|---------------|-----------|
-| 5 min recording | 1-3 min | 2-4 GB |
-| 20 min recording | 5-15 min | 4-8 GB |
-| 1 hour recording | 20-60 min | 8-16 GB |
+| 5 min recording | 1–3 min | 2–4 GB |
+| 20 min recording | 5–15 min | 4–8 GB |
+| 1 hour recording | 20–60 min | 8–16 GB |
 
 **Speed up processing:**
 - Increase `--downsample` to 0.1 or higher
 - Increase `--grid_res` to 0.1 or higher
 - Increase `--octree_res` to 0.2 or higher
-- Process shorter bag segments if testing
+- Process shorter bag segments when testing
 
 ---
 
 ## 📚 Using the Map with NAV2
 
-Once you have your `my_map.pgm` and `my_map.yaml`, you can use them with ROS 2 Nav2:
+Once you have `my_map.pgm` and `my_map.yaml`, load them in ROS 2 Nav2:
 
 ### 1. Copy to Your ROS 2 Workspace
 ```bash
@@ -255,5 +274,3 @@ map_file = os.path.join(
     'my_map.yaml'
 )
 ```
-
----
