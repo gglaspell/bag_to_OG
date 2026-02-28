@@ -1,4 +1,5 @@
 # 🗺️ ROS 2 Bag to Occupancy Grid Converter
+<img width="145" height="187" alt="Screenshot from 2026-01-29 15-00-51" src="https://github.com/user-attachments/assets/18baca2d-8e8d-434c-ab02-24611b94c30e" />
 
 ## 🎯 What This Does
 
