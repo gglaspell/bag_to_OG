@@ -159,7 +159,7 @@ docker run --rm -v "$(pwd)/data:/app/data" bag-to-map \
 | `--workers` | No | `4` | Parallel worker threads for grid generation. |
 | `--min_cluster_size` | No | `20` | Minimum number of **grid cells** an occupied cluster must contain to be kept. Smaller clusters are relabelled as unknown. Set to `0` to disable denoising. |
 | `--closing_iters` | No | `1` | Morphological closing passes applied before cluster labeling. Bridges tiny 1-pixel gaps in walls so real obstacles are not accidentally split. Set to `0` to skip. |
-
+| `--odom_max_latency` | No   | 0.5 s   | Staleness cutoff for odom↔pointcloud timestamp matching |
 ---
 
 ## 🎯 Finding Your Topic Name (in a ROS environment)
