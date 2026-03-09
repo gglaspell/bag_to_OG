@@ -16,6 +16,7 @@ Example:
 
 import argparse
 import sys
+import bisect
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -426,6 +427,10 @@ def main():
                         help='Morphological closing passes before cluster labeling. '
                              '0 = skip closing. (default: 1)')
 
+    # --- robustness ---
+    parser.add_argument('--odom_max_latency', type=float, default=0.5,
+                        help='Max allowed time gap (s) between point cloud and odometry.')
+
     args = parser.parse_args()
 
     print("--- Configuration ---")
@@ -443,6 +448,13 @@ def main():
         print("Error: no odometry data found.")
         return False
     print(f"  Loaded {len(odom_times)} odometry poses.")
+    # ------------------------------------------------------------------
+    # Step 1.5 - Sort odometry to enable O(log N) lookup
+    # ------------------------------------------------------------------
+    odom_sort_idx = np.argsort(odom_times)
+    odom_times_sorted = odom_times[odom_sort_idx].tolist()
+    odom_poses_sorted = odom_poses[odom_sort_idx]
+
 
     # ------------------------------------------------------------------
     # Step 2 – Build hybrid 3-D OcTree via ray-casting
@@ -483,8 +495,22 @@ def main():
         except Exception:
             continue
 
-        odom_idx      = np.argmin(np.abs(odom_times - pc_times[i]))
-        sensor_origin = odom_poses[odom_idx][:3, 3]
+        ts = pc_times[i]
+        idx = bisect.bisect_left(odom_times_sorted, ts)
+        if idx == 0:
+            best_idx = 0
+        elif idx == len(odom_times_sorted):
+            best_idx = len(odom_times_sorted) - 1
+        else:
+            before, after = odom_times_sorted[idx - 1], odom_times_sorted[idx]
+            best_idx = idx - 1 if (ts - before) <= (after - ts) else idx
+
+        closest_ts = odom_times_sorted[best_idx]
+        if abs(closest_ts - ts) > args.odom_max_latency:
+            print(f"\r  [{i + 1}/{len(pc_msg_list)}] Skipped: Stale odometry (gap: {abs(closest_ts - ts):.3f}s)", end="")
+            continue
+
+        sensor_origin = odom_poses_sorted[best_idx][:3, 3]
 
         print(f"\r  [{i + 1}/{len(pc_msg_list)}] {len(points)} pts", end="")
         try:
