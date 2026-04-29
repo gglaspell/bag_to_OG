@@ -85,6 +85,13 @@ docker build -t bag-to-map .
 
 ---
 
+## 🔥 New!
+How to Run the GUI launcher
+
+```
+python3 bag_to_map_gui.py
+```
+
 ## 📋 Common Use Cases (Copy & Paste)
 
 ### ✅ Flat Indoor Environment (Office, Warehouse)
